@@ -15,12 +15,12 @@ echo "==> Installing gallery-dl (user scope)"
 python3 -m pip install --user --upgrade gallery-dl
 
 # Ensure Python user bin directory is in PATH
-_py_user_base=$(python3 -m site --user-base 2>/dev/null || true)
-if [[ -n "$_py_user_base" && -d "$_py_user_base/bin" ]]; then
+_py_user_base=$(python3 -c "import sysconfig, os; print(sysconfig.get_path('scripts', f'posix_user'))" 2>/dev/null || true)
+if [[ -n "$_py_user_base" && -d "$_py_user_base" ]]; then
     case ":$PATH:" in
-        *":$_py_user_base/bin:"*) ;;
-        *) export PATH="$_py_user_base/bin:$PATH"
-           echo "Added $_py_user_base/bin to session PATH." ;;
+        *":$_py_user_base:"*) ;;
+        *) export PATH="$_py_user_base:$PATH"
+           echo "Added $_py_user_base to session PATH." ;;
     esac
 fi
 
@@ -62,10 +62,9 @@ if [[ -n "${TOOLS_PATH:-}" ]]; then
     fi
 
     # Ensure Python user bin directory is in shell PATH
-    if [[ -n "${_py_user_base:-}" && -d "$_py_user_base/bin" ]]; then
-        PATH_LINE="export PATH=\"$_py_user_base/bin:\$PATH\""
-        if ! grep -qF "$_py_user_base/bin" "$SHELL_RC" 2>/dev/null; then
-            echo "$PATH_LINE" >> "$SHELL_RC"
+    if [[ -n "${_py_user_base:-}" && -d "$_py_user_base" ]]; then
+        PATH_LINE="export PATH=\"$_py_user_base:\$PATH\""
+        if ! grep -qF "$_py_user_base" "$SHELL_RC" 2>/dev/null; then        
             echo "Added Python user bin directory to $SHELL_RC"
         fi
     fi
