@@ -176,8 +176,8 @@ ins_download() {
 
     if $show_help || [[ -z "$target" ]]; then
         echo "Usage: ins_download <URL|alias|username> [-t N] [-l [N]] [-o] [-i spec] [-e spec] [-d dir]"
-        echo "  -t/--top N       : URL mode -> first N media; user/alias -> first N posts"
-        echo "  -l/--limit [N]   : URL mode -> per-post cap (default 5); user/alias -> total cap (default 20)"
+        echo "  -t/--top N       : URL and User mode -> first N media per post/carousel"
+        echo "  -l/--limit [N]   : URL mode -> per-post cap (default 5); user/alias -> total cap globally (default 20)"
         echo "  -o/--only        : URL mode, download only current media (img_index)"
         echo "  -i/--include spec: ranges like 1,3 or 2-4 (URL mode)"
         echo "  -e/--exclude spec: ranges like 1,3 or 2-4 (URL mode)"
@@ -288,8 +288,12 @@ ins_download() {
         else
             effective_limit=20
         fi
-        [[ -n "$top" ]] && gdl_args+=(--range "1-$top")
-        gdl_args+=(--filter "num <= $effective_limit")
+        
+        # In user mode, we want a total cap, mapping Limit to --range
+        gdl_args+=(--range "1-$effective_limit")
+        
+        # -t/--top restricts the number of media within carousels per post
+        [[ -n "$top" ]] && gdl_args+=(--filter "num <= $top")
     fi
 
     local log_file

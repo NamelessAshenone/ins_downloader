@@ -11,7 +11,7 @@ Supports **macOS** (zsh / bash) and **Windows** (PowerShell).
 |---------|-------------|
 | **Alias mapping** | Map short names to Instagram usernames (`~/.ins_aliases`, shared across platforms) |
 | **Download modes** | By URL, username, or alias |
-| **Limits** | `-Top N` for first N posts/media; `-Limit [N]` for per-post or total cap |
+| **Limits** | `-Top N` for first N media per post; `-Limit [N]` for per-post or total global cap |
 | **Directory control** | Set a persistent default directory, or specify a per-download directory |
 | **Anti-scrape** | Random 1–5 s sleep per request; auto 120 s backoff on HTTP 429/403 |
 
@@ -170,7 +170,7 @@ Ins-Download https://www.instagram.com/p/POSTID/ -Directory "D:\MyMedia"
 # Download by alias (first 20 posts by default)
 Ins-Download alice
 
-# Alias mode: first 5 posts, total cap 10
+# Alias mode: first 5 media per post, total cap 10 items globally
 Ins-Download alice -Top 5 -Limit 10
 
 # Show help
@@ -181,9 +181,9 @@ Ins-Download -Help
 
 | Parameter | URL mode | User/Alias mode |
 |-----------|----------|-----------------|
-| `-Directory` / `-d` | Custom output directory | Custom output directory |
-| `-Top N` / `-t N` | First N media in the post | First N posts |
-| `-Limit [N]` / `-l [N]` | Per-post cap (default 5 if omitted) | Total cap (default 20) |
+| `-Directory` | Custom output directory | Custom output directory |
+| `-Top N` | First N media in the post | First N media per post |
+| `-Limit [N]` | Per-post cap (default 5 if omitted) | Total global cap (default 20) |
 | `-Only` / `-o` | Download only current media (img_index) | — |
 | `-Include` / `-i` | Range like `1,3` or `2-4` | — |
 | `-Exclude` / `-e` | Range like `1,3` or `2-4` | — |
@@ -211,6 +211,7 @@ Ins-Download -Help
 |---------------------|---------|-------------|
 | `INS_ALIAS_FILE` | `~/.ins_aliases` | Path to alias file |
 | `INS_DOWNLOAD_DIR` | *(prompted on first use)* | Download root directory (overrides persisted config) |
+| `INS_COOKIES_FILE`  | `None` | Path to explicitly bound `cookies.txt` file (overrides browser reading) |
 | `INS_CHROME_PROFILE` | `Default` | Chrome profile name for cookies |
 
 The download directory is resolved in this order:
@@ -218,6 +219,22 @@ The download directory is resolved in this order:
 1. `$env:INS_DOWNLOAD_DIR` (environment variable — highest priority)
 2. `~/.ins_download_dir` (persisted by `Ins-SetDir` / `ins_setdir`)
 3. First-time prompt (asks you to choose; defaults to `~/Pictures/ins_pictures` if skipped)
+
+---
+
+## Handling Login & Cookies (Chrome 114+ / Edge)
+
+Recent updates to Chromium browsers (like Chrome and Edge) enforce **App-Bound Encryption**, meaning external tools cannot directly decrypt cookies from the browser's database. If you use Windows and see a `Failed to decrypt cookie (DPAPI)` or `Permission denied` error, follow these steps:
+
+1. Install an extension like **"Get cookies.txt LOCALLY"** in your Chrome or Edge browser.
+2. Sign in to Instagram in your browser.
+3. Click the extension to download your cookies as a `.txt` file (e.g., `cookies.txt`).
+4. Keep that file somewhere safe, and bind it to the script using the configuration command:
+   ```powershell
+   Ins-SetCookie "C:\path\to\your\cookies.txt"
+   ```
+
+*Note: The script will automatically prompt you to do this if it detects a cookie interception attempt.*
 
 ---
 
@@ -245,13 +262,12 @@ it to your session `PATH`. If you still see the error, you can add it manually:
 
 **Windows (PowerShell):**
 ```powershell
-# Find the directory
-python -m site --user-base
-# Example output: C:\Users\You\AppData\Roaming\Python\Python311
+# Find the exact Scripts directory:
+python -c "import sysconfig, os; print(sysconfig.get_path('scripts', f'{os.name}_user'))"
+# Example output: C:\Users\You\AppData\Roaming\Python\Python311\Scripts
 
-# Add its Scripts subdirectory to your user PATH permanently
-$base = (python -m site --user-base).Trim()
-$scripts = Join-Path $base 'Scripts'
+# Add it to your user PATH permanently
+$scripts = (python -c "import sysconfig, os; print(sysconfig.get_path('scripts', f'{os.name}_user'))").Trim()
 $current = [Environment]::GetEnvironmentVariable('PATH', 'User')
 [Environment]::SetEnvironmentVariable('PATH', "$scripts;$current", 'User')
 ```

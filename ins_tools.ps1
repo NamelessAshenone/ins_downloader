@@ -16,17 +16,31 @@ if ($MyInvocation.InvocationName -ne '.') {
 }
 
 # Configurable defaults
-$Global:InsAliasFile     = if ($env:INS_ALIAS_FILE)     { $env:INS_ALIAS_FILE }     else { "$env:USERPROFILE\.ins_aliases" }
-$Global:InsChromeProfile = if ($env:INS_CHROME_PROFILE) { $env:INS_CHROME_PROFILE } else { "Default" }
-$Global:InsConfigFile    = Join-Path $env:USERPROFILE '.ins_download_dir'
-$Global:InsDefaultSafeDir = Join-Path $env:USERPROFILE 'Pictures\ins_pictures'
+$Global:InsAliasFile       = if ($env:INS_ALIAS_FILE)     { $env:INS_ALIAS_FILE }     else { "$env:USERPROFILE\.ins_aliases" }
+$Global:InsBrowser         = if ($env:INS_BROWSER)        { $env:INS_BROWSER }        else { "chrome" }
+$Global:InsBrowserProfile  = if ($env:INS_BROWSER_PROFILE){ $env:INS_BROWSER_PROFILE} else { if ($env:INS_CHROME_PROFILE) { $env:INS_CHROME_PROFILE } else { "Default" } }
+$Global:InsConfigFile      = Join-Path $env:USERPROFILE '.ins_download_dir'
+$Global:InsCookieConfFile  = Join-Path $env:USERPROFILE '.ins_cookie_path'
+$Global:InsDefaultSafeDir  = Join-Path $env:USERPROFILE 'Pictures\ins_pictures'
+
+# Load bound cookie file if any
+$Global:InsCookiesFile = $null
+if ($env:INS_COOKIES_FILE) {
+    $Global:InsCookiesFile = $env:INS_COOKIES_FILE
+} elseif (Test-Path $Global:InsCookieConfFile) {
+    $savedCookie = (Get-Content $Global:InsCookieConfFile -First 1).Trim()
+    if ($savedCookie) {
+        $Global:InsCookiesFile = $savedCookie
+    }
+}
 
 # Ensure Python user Scripts directory is in PATH (pip --user installs go there)
 if (-not (Get-Command gallery-dl -ErrorAction SilentlyContinue)) {
     try {
-        $pyUserBase = & python -m site --user-base 2>$null
-        if ($pyUserBase) {
-            $pyScriptsDir = Join-Path $pyUserBase.Trim() 'Scripts'
+        # getting actual user Scripts path via sysconfig cross-platform
+        $pyScriptsDir = & python -c "import sysconfig, os; print(sysconfig.get_path('scripts', f'{os.name}_user'))" 2>$null
+        if ($pyScriptsDir) {
+            $pyScriptsDir = $pyScriptsDir.Trim()
             if ((Test-Path $pyScriptsDir) -and $env:PATH -notlike "*$([regex]::Escape($pyScriptsDir))*") {
                 $env:PATH = "$pyScriptsDir;$env:PATH"
             }
@@ -116,6 +130,31 @@ function Ins-SetDir {
     Write-Host "Download directory set to: $resolved"
 }
 
+function Ins-SetCookie {
+    param(
+        [Parameter(Position=0)][string]$Path
+    )
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        if ($Global:InsCookiesFile) {
+            Write-Host "Current bound cookies file: $($Global:InsCookiesFile)"
+        } else {
+            Write-Host "No cookies file currently bound."
+        }
+        Write-Host "Usage: Ins-SetCookie <path_to_cookies.txt>"
+        return
+    }
+    
+    $resolved = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+    if (-not (Test-Path $resolved -PathType Leaf)) {
+        Write-Host "Warning: File does not exist at path: $resolved" -ForegroundColor Yellow
+        Write-Host "Make sure you export cookies accurately." -ForegroundColor Yellow
+    }
+    
+    $Global:InsCookiesFile = $resolved
+    Set-Content -Path $Global:InsCookieConfFile -Value $resolved
+    Write-Host "Cookies file successfully bound to: $resolved" -ForegroundColor Green
+}
+
 function Ins-Download {
     [CmdletBinding()]
     param(
@@ -132,8 +171,8 @@ function Ins-Download {
     if ($Help -or [string]::IsNullOrWhiteSpace($Target)) {
         Write-Host "Usage: Ins-Download <URL|alias|username> [-Directory dir] [-Top N] [-Limit [N]] [-Only] [-Include spec] [-Exclude spec]"
         Write-Host "-Directory: custom output directory for this download (also accepts positional after target)"
-        Write-Host "-Top: URL mode -> first N media in the post; user/alias -> first N posts"
-        Write-Host "-Limit: URL mode -> per-post cap when provided (default 5 if value omitted); user/alias -> total cap (default 20)"
+        Write-Host "-Top: first N media in the post (works equally for URL and User modes)"
+        Write-Host "-Limit: URL mode -> per-post cap when provided (default 5); user/alias -> total overall cap (default 20)"
         Write-Host "-Only: URL mode, download only current media (uses img_index)"
         Write-Host "-Include/-Exclude: ranges like 1,3 or 2-4 (URL mode)"
         return
@@ -184,7 +223,6 @@ function Ins-Download {
     if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Force -Path $targetDir | Out-Null }
 
     $gdlArgs = @(
-        '--cookies-from-browser', "chrome:$($Global:InsChromeProfile)",
         '-d', $targetDir,
         '-o', 'directory=[]',
         '-o', ('filename=' + ($(if ($currentAlias) { "$currentAlias" } else { '{username}' }) + '_{date:%Y%m%d_%H%M}_{num}.{extension}')),
@@ -194,6 +232,14 @@ function Ins-Download {
         '-o', 'write-info-json=true',
         '-o', 'download.clobber=numbered'
     )
+    
+    $usingBrowserCookies = $false
+    if ($Global:InsCookiesFile -and (Test-Path $Global:InsCookiesFile)) {
+        $gdlArgs = @('--cookies', $Global:InsCookiesFile) + $gdlArgs
+    } else {
+        $gdlArgs = @('--cookies-from-browser', "$($Global:InsBrowser):$($Global:InsBrowserProfile)") + $gdlArgs
+        $usingBrowserCookies = $true
+    }
 
     if ($mode -eq 'url') {
         if ($Only.IsPresent) {
@@ -202,17 +248,22 @@ function Ins-Download {
         if ($Top) { $gdlArgs += @('--range', "1-$Top") }
         if ($Include) { $gdlArgs += @('--range', $Include) }
         if ($Exclude) {
-            if ($Exclude -match '([0-9]+)-([0-9]+)') { $gdlArgs += @('--filter', "num < $($matches[1]) or num > $($matches[2])") }
-            else { $gdlArgs += @('--filter', "num != $Exclude") }
+            if ($Exclude -match '([0-9]+)-([0-9]+)') { $gdlArgs += @('--filter', "`"num < $($matches[1]) or num > $($matches[2])`"") }
+            else { $gdlArgs += @('--filter', "`"num != $Exclude`"") }
         }
         if ($PSBoundParameters.ContainsKey('Limit')) {
             $effective = if ($Limit -gt 0) { $Limit } else { 5 }
-            $gdlArgs += @('--filter', "num <= $effective")
+            $gdlArgs += @('--filter', "`"num <= $effective`"")
         }
     } else {
         $effectiveLimit = if ($PSBoundParameters.ContainsKey('Limit')) { if ($Limit -gt 0) { $Limit } else { 20 } } else { 20 }
-        if ($Top) { $gdlArgs += @('--range', "1-$Top") }
-        $gdlArgs += @('--filter', "num <= $effectiveLimit")
+        
+        # User mode logic reversed from URL mode to meet total-cap requirement:
+        # -Limit limits the total items downloaded across all posts
+        $gdlArgs += @('--range', "1-$effectiveLimit")
+        
+        # -Top limits the number of media per post (carousels)
+        if ($Top) { $gdlArgs += @('--filter', "`"num <= $Top`"") }
     }
 
     $gdlCmd = Get-Command gallery-dl -ErrorAction SilentlyContinue
@@ -223,10 +274,23 @@ function Ins-Download {
     }
     $gdlPath = $gdlCmd.Source
 
+    $fullArgs = @()
+    foreach ($arg in ($gdlArgs + @($Target))) {
+        # If argument contains spaces, wrap it in double quotes (only if it's not already)
+        if ($arg -match "\s" -or $arg -match '==|<=|>=|!=|<|>') {
+            $cleanArg = $arg -replace '^"|"$', ''
+            $fullArgs += "`"$cleanArg`""
+        } else {
+            $fullArgs += $arg
+        }
+    }
+    
+    $argString = $fullArgs -join ' '
+
     $stdoutLog = [System.IO.Path]::GetTempFileName()
     $stderrLog = [System.IO.Path]::GetTempFileName()
     Write-Host "Downloading to $targetDir"
-    $proc = Start-Process -FilePath $gdlPath -ArgumentList ($gdlArgs + @($Target)) -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -NoNewWindow -PassThru
+    $proc = Start-Process -FilePath $gdlPath -ArgumentList $argString -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -NoNewWindow -PassThru
     if (-not $proc) {
         Write-Host "Error: failed to start gallery-dl at $gdlPath"
         Remove-Item $stdoutLog, $stderrLog -ErrorAction SilentlyContinue
@@ -240,6 +304,34 @@ function Ins-Download {
         Write-Host "Detected 429/403. Backing off for 120 seconds..."
         Start-Sleep -Seconds 120
     }
+    
+    $needsCookiePrompt = $false
+
+    if ($output -match 'Permission denied.*Cookies') {
+        Write-Host "`n[!]" -ForegroundColor Red -NoNewline
+        Write-Host " ERROR: Chrome cookie database is locked!" -ForegroundColor Yellow
+        Write-Host "Please CLOSE all Google Chrome windows completely so gallery-dl can read your Instagram login cookies.`n" -ForegroundColor Cyan
+        $needsCookiePrompt = $true
+    }
+    
+    if ($output -match 'Failed to decrypt cookie \(DPAPI\)') {
+        Write-Host "`n[!]" -ForegroundColor Red -NoNewline
+        Write-Host " ERROR: Browser App-Bound Encryption blocked cookie decryption!" -ForegroundColor Yellow
+        Write-Host "Since Chrome 114+ (and recently Edge), third-party tools cannot decrypt cookies directly." -ForegroundColor Cyan
+        $needsCookiePrompt = $true
+    }
+
+    if ($needsCookiePrompt -and $usingBrowserCookies) {
+        Write-Host "`n[WORKAROUND needed]" -ForegroundColor Magenta
+        Write-Host "1. Install 'Get cookies.txt LOCALLY' extension in your browser."
+        Write-Host "2. Go to Instagram and click the extension to export your cookies as a text file."
+        Write-Host "3. Input the path to that text file below to bind it automatically."
+        $cookiePath = Read-Host "`nEnter the path to your cookies.txt (or press Enter to skip)"
+        if (-not [string]::IsNullOrWhiteSpace($cookiePath)) {
+            Ins-SetCookie $cookiePath
+            Write-Host "Path saved! Please run your Ins-Download command again.`n" -ForegroundColor Green
+        }
+    }
 
     Remove-Item $stdoutLog, $stderrLog -ErrorAction SilentlyContinue
 
@@ -249,3 +341,4 @@ function Ins-Download {
 Set-Alias -Name ins_alias -Value Ins-Alias
 Set-Alias -Name ins_download -Value Ins-Download
 Set-Alias -Name ins_setdir -Value Ins-SetDir
+Set-Alias -Name ins_setcookie -Value Ins-SetCookie

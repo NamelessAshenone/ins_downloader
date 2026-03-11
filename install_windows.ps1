@@ -24,9 +24,9 @@ function Install-GalleryDl {
     python -m pip install --user -U gallery-dl
     # Ensure the Python user Scripts directory is in the persistent user PATH
     try {
-        $pyUserBase = & python -m site --user-base 2>$null
-        if ($pyUserBase) {
-            $pyScriptsDir = Join-Path $pyUserBase.Trim() 'Scripts'
+        $pyScriptsDir = & python -c "import sysconfig, os; print(sysconfig.get_path('scripts', f'{os.name}_user'))" 2>$null
+        if ($pyScriptsDir) {
+            $pyScriptsDir = $pyScriptsDir.Trim()
             if (Test-Path $pyScriptsDir) {
                 $currentPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
                 if ($currentPath -notlike "*$([regex]::Escape($pyScriptsDir))*") {
@@ -38,8 +38,8 @@ function Install-GalleryDl {
         }
     } catch {
         Write-Host "Warning: Could not add Python Scripts directory to PATH automatically."
-        Write-Host "You may need to add it manually. Run:  python -m site --user-base"
-        Write-Host "Then add the 'Scripts' subdirectory of the printed path to your PATH."
+        Write-Host "You may need to add it manually. Run:  python -c `"import sysconfig, os; print(sysconfig.get_path('scripts', f'{os.name}_user'))`""
+        Write-Host "Then add the printed path to your user PATH environment variable."
     }
 }
 
