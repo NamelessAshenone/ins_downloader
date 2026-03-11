@@ -14,6 +14,16 @@ brew list python >/dev/null 2>&1 || brew install python
 echo "==> Installing gallery-dl (user scope)"
 python3 -m pip install --user --upgrade gallery-dl
 
+# Ensure Python user bin directory is in PATH
+_py_user_base=$(python3 -m site --user-base 2>/dev/null || true)
+if [[ -n "$_py_user_base" && -d "$_py_user_base/bin" ]]; then
+    case ":$PATH:" in
+        *":$_py_user_base/bin:"*) ;;
+        *) export PATH="$_py_user_base/bin:$PATH"
+           echo "Added $_py_user_base/bin to session PATH." ;;
+    esac
+fi
+
 echo "==> (Optional) Installing ffmpeg"
 if ! brew list ffmpeg >/dev/null 2>&1; then
     printf "Install ffmpeg via Homebrew? [Y/n] "
@@ -50,6 +60,16 @@ if [[ -n "${TOOLS_PATH:-}" ]]; then
     else
         SHELL_RC="$HOME/.bashrc"
     fi
+
+    # Ensure Python user bin directory is in shell PATH
+    if [[ -n "${_py_user_base:-}" && -d "$_py_user_base/bin" ]]; then
+        PATH_LINE="export PATH=\"$_py_user_base/bin:\$PATH\""
+        if ! grep -qF "$_py_user_base/bin" "$SHELL_RC" 2>/dev/null; then
+            echo "$PATH_LINE" >> "$SHELL_RC"
+            echo "Added Python user bin directory to $SHELL_RC"
+        fi
+    fi
+
     SOURCE_LINE="source \"$TOOLS_PATH\""
     if grep -qF "$SOURCE_LINE" "$SHELL_RC" 2>/dev/null; then
         echo "Shell config ($SHELL_RC) already contains source line."

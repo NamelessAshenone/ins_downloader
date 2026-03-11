@@ -22,6 +22,25 @@ function Ensure-Python {
 function Install-GalleryDl {
     Write-Host "Installing/Updating gallery-dl (user scope)..."
     python -m pip install --user -U gallery-dl
+    # Ensure the Python user Scripts directory is in the persistent user PATH
+    try {
+        $pyUserBase = & python -m site --user-base 2>$null
+        if ($pyUserBase) {
+            $pyScriptsDir = Join-Path $pyUserBase.Trim() 'Scripts'
+            if (Test-Path $pyScriptsDir) {
+                $currentPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
+                if ($currentPath -notlike "*$([regex]::Escape($pyScriptsDir))*") {
+                    [Environment]::SetEnvironmentVariable('PATH', "$pyScriptsDir;$currentPath", 'User')
+                    $env:PATH = "$pyScriptsDir;$env:PATH"
+                    Write-Host "Added $pyScriptsDir to user PATH."
+                }
+            }
+        }
+    } catch {
+        Write-Host "Warning: Could not add Python Scripts directory to PATH automatically."
+        Write-Host "You may need to add it manually. Run:  python -m site --user-base"
+        Write-Host "Then add the 'Scripts' subdirectory of the printed path to your PATH."
+    }
 }
 
 function Ensure-FFmpeg {
