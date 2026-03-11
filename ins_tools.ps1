@@ -202,10 +202,23 @@ function Ins-Download {
         $gdlArgs += @('--filter', "num <= $effectiveLimit")
     }
 
+    $gdlCmd = Get-Command gallery-dl -ErrorAction SilentlyContinue
+    if (-not $gdlCmd) {
+        Write-Host "Error: gallery-dl not found. Install it with:  python -m pip install --user -U gallery-dl"
+        Write-Host "Then restart your PowerShell session so the updated PATH takes effect."
+        return
+    }
+    $gdlPath = $gdlCmd.Source
+
     $stdoutLog = [System.IO.Path]::GetTempFileName()
     $stderrLog = [System.IO.Path]::GetTempFileName()
     Write-Host "Downloading to $targetDir"
-    $proc = Start-Process -FilePath "gallery-dl" -ArgumentList ($gdlArgs + @($Target)) -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -NoNewWindow -PassThru
+    $proc = Start-Process -FilePath $gdlPath -ArgumentList ($gdlArgs + @($Target)) -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -NoNewWindow -PassThru
+    if (-not $proc) {
+        Write-Host "Error: failed to start gallery-dl at $gdlPath"
+        Remove-Item $stdoutLog, $stderrLog -ErrorAction SilentlyContinue
+        return
+    }
     $proc.WaitForExit()
     $output = @(Get-Content $stdoutLog -ErrorAction SilentlyContinue) + @(Get-Content $stderrLog -ErrorAction SilentlyContinue)
     $output | ForEach-Object { Write-Host $_ }
