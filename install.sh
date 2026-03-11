@@ -45,7 +45,7 @@ fi
 echo "==> Updating shell config"
 if [[ -n "${TOOLS_PATH:-}" ]]; then
     # Detect shell config file
-    if [[ -n "${ZSH_VERSION:-}" ]] || [[ "$(basename "$SHELL")" == "zsh" ]]; then
+    if [[ "$(basename "${SHELL:-/bin/bash}")" == "zsh" ]]; then
         SHELL_RC="$HOME/.zshrc"
     else
         SHELL_RC="$HOME/.bashrc"

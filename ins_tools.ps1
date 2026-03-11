@@ -117,8 +117,8 @@ function Ins-Download {
     )
 
     if ($Help -or [string]::IsNullOrWhiteSpace($Target)) {
-        Write-Host "Usage: Ins-Download <URL|alias|username> [directory] [-Top N] [-Limit [N]] [-Only] [-Include spec] [-Exclude spec]"
-        Write-Host "-Directory: custom output directory for this download (positional or named)"
+        Write-Host "Usage: Ins-Download <URL|alias|username> [-Directory dir] [-Top N] [-Limit [N]] [-Only] [-Include spec] [-Exclude spec]"
+        Write-Host "-Directory: custom output directory for this download (also accepts positional after target)"
         Write-Host "-Top: URL mode -> first N media in the post; user/alias -> first N posts"
         Write-Host "-Limit: URL mode -> per-post cap when provided (default 5 if value omitted); user/alias -> total cap (default 20)"
         Write-Host "-Only: URL mode, download only current media (uses img_index)"
