@@ -226,3 +226,44 @@ The download directory is resolved in this order:
 - Both platforms share the same alias file (`~/.ins_aliases`) and config file (`~/.ins_download_dir`).
 - Uses Chrome cookies for authentication by default. Set `$env:INS_CHROME_PROFILE` / `INS_CHROME_PROFILE` to use a different Chrome profile.
 - To update gallery-dl: `pip install --user -U gallery-dl`
+
+---
+
+## Troubleshooting — gallery-dl not found
+
+When `gallery-dl` is installed via `pip install --user`, the executable is placed in a
+user-specific directory that may not be in your `PATH`:
+
+| OS | Typical path |
+|----|-------------|
+| Windows | `%APPDATA%\Python\PythonXX\Scripts` |
+| macOS / Linux | `~/.local/bin` |
+
+The installer scripts (`install_windows.bat` / `install.sh`) and the runtime scripts
+(`ins_tools.ps1` / `ins_tools.sh`) will **automatically** detect this directory and add
+it to your session `PATH`. If you still see the error, you can add it manually:
+
+**Windows (PowerShell):**
+```powershell
+# Find the directory
+python -m site --user-base
+# Example output: C:\Users\You\AppData\Roaming\Python\Python311
+
+# Add its Scripts subdirectory to your user PATH permanently
+$base = (python -m site --user-base).Trim()
+$scripts = Join-Path $base 'Scripts'
+$current = [Environment]::GetEnvironmentVariable('PATH', 'User')
+[Environment]::SetEnvironmentVariable('PATH', "$scripts;$current", 'User')
+```
+
+**macOS / Linux:**
+```bash
+# Find the directory
+python3 -m site --user-base
+# Example output: /home/you/.local
+
+# Add to your shell config (e.g. ~/.zshrc or ~/.bashrc)
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+```
+
+After making changes, **restart your shell** for the new `PATH` to take effect.

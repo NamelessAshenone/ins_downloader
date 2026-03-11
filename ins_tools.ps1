@@ -21,6 +21,19 @@ $Global:InsChromeProfile = if ($env:INS_CHROME_PROFILE) { $env:INS_CHROME_PROFIL
 $Global:InsConfigFile    = Join-Path $env:USERPROFILE '.ins_download_dir'
 $Global:InsDefaultSafeDir = Join-Path $env:USERPROFILE 'Pictures\ins_pictures'
 
+# Ensure Python user Scripts directory is in PATH (pip --user installs go there)
+if (-not (Get-Command gallery-dl -ErrorAction SilentlyContinue)) {
+    try {
+        $pyUserBase = & python -m site --user-base 2>$null
+        if ($pyUserBase) {
+            $pyScriptsDir = Join-Path $pyUserBase.Trim() 'Scripts'
+            if ((Test-Path $pyScriptsDir) -and $env:PATH -notlike "*$([regex]::Escape($pyScriptsDir))*") {
+                $env:PATH = "$pyScriptsDir;$env:PATH"
+            }
+        }
+    } catch {}
+}
+
 # Download directory: env var → persisted config file → not yet configured
 $Global:InsDownloadDirConfigured = $false
 if ($env:INS_DOWNLOAD_DIR) {

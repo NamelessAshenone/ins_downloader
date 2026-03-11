@@ -18,6 +18,18 @@
 INS_CONFIG_FILE="$HOME/.ins_download_dir"
 INS_DEFAULT_SAFE_DIR="$HOME/Pictures/ins_pictures"
 
+# Ensure Python user bin directory is in PATH (pip --user installs go there)
+if ! command -v gallery-dl &>/dev/null; then
+    _py_user_base=$(python3 -m site --user-base 2>/dev/null || python -m site --user-base 2>/dev/null || true)
+    if [[ -n "$_py_user_base" && -d "$_py_user_base/bin" ]]; then
+        case ":$PATH:" in
+            *":$_py_user_base/bin:"*) ;;
+            *) export PATH="$_py_user_base/bin:$PATH" ;;
+        esac
+    fi
+    unset _py_user_base
+fi
+
 # Download directory: env var → persisted config file → not yet configured
 INS_DOWNLOAD_DIR_CONFIGURED=false
 if [[ -n "${INS_DOWNLOAD_DIR:-}" ]]; then
