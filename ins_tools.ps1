@@ -2,9 +2,9 @@
 # Mirrors macOS ins_alias / ins_download behavior
 
 # Configurable defaults
-$Global:InsAliasFile   = $env:INS_ALIAS_FILE   ? $env:INS_ALIAS_FILE   : "$env:USERPROFILE\.ins_aliases"
-$Global:InsDownloadDir = $env:INS_DOWNLOAD_DIR ? $env:INS_DOWNLOAD_DIR : "$env:USERPROFILE\Pictures\ins_pictures"
-$Global:InsChromeProfile = $env:INS_CHROME_PROFILE ? $env:INS_CHROME_PROFILE : "Default"
+$Global:InsAliasFile   = if ($env:INS_ALIAS_FILE)   { $env:INS_ALIAS_FILE }   else { "$env:USERPROFILE\.ins_aliases" }
+$Global:InsDownloadDir = if ($env:INS_DOWNLOAD_DIR) { $env:INS_DOWNLOAD_DIR } else { "$env:USERPROFILE\Pictures\ins_pictures" }
+$Global:InsChromeProfile = if ($env:INS_CHROME_PROFILE) { $env:INS_CHROME_PROFILE } else { "Default" }
 
 function Ins-Alias {
     param(
@@ -17,37 +17,34 @@ function Ins-Alias {
     if (-not (Test-Path $Global:InsAliasFile)) { New-Item -ItemType File -Path $Global:InsAliasFile -Force | Out-Null }
 
     switch ($Action) {
-        'add' { goto modify }
-        'modify' {
+        { $_ -in 'add','modify' } {
             if ([string]::IsNullOrWhiteSpace($Alias) -or [string]::IsNullOrWhiteSpace($RealId)) { Write-Host "Usage: Ins-Alias add <alias> <real_username>"; return }
             # unique constraint: one real user -> one alias
-            $lines = Get-Content $Global:InsAliasFile
+            $lines = @(Get-Content $Global:InsAliasFile)
             $existingAlias = $lines | Where-Object { $_ -match "^.+\s+$RealId$" } | ForEach-Object { ($_ -split '\s+')[0] }
             if ($existingAlias -and $existingAlias -ne $Alias) {
                 $resp = Read-Host "User @$RealId already has alias [$existingAlias]. Overwrite with [$Alias]? (y/n)"
                 if ($resp -notin @('y','Y')) { Write-Host "Cancelled."; return }
-                $lines = $lines | Where-Object { $_ -notmatch "\s+$RealId$" }
+                $lines = @($lines | Where-Object { $_ -notmatch "\s+$RealId$" })
             }
-            $lines = $lines | Where-Object { $_ -notmatch "^$Alias\s+" }
+            $lines = @($lines | Where-Object { $_ -notmatch "^$Alias\s+" })
             $lines += "$Alias $RealId"
             $lines | Set-Content $Global:InsAliasFile
             Write-Host "Saved: $Alias -> @$RealId"
         }
-        'remove' { goto delete }
-        'delete' {
+        { $_ -in 'remove','delete' } {
             if ([string]::IsNullOrWhiteSpace($Alias)) { Write-Host "Usage: Ins-Alias delete <alias>"; return }
-            (Get-Content $Global:InsAliasFile) | Where-Object { $_ -notmatch "^$Alias\s+" } | Set-Content $Global:InsAliasFile
+            $lines = Get-Content $Global:InsAliasFile
+            Set-Content -Path $Global:InsAliasFile -Value ($lines | Where-Object { $_ -notmatch "^$Alias\s+" })
             Write-Host "Deleted alias $Alias"
         }
-        'list' { goto show }
-        'show' {
+        { $_ -in 'list','show' } {
             Write-Host "Aliases in $Global:InsAliasFile"
             Get-Content $Global:InsAliasFile | Sort-Object | ForEach-Object {
                 if ($_ -match "^(\S+)\s+(\S+)$") { '{0,-15} {1}' -f $matches[1], $matches[2] }
             }
         }
-        'search' { goto find }
-        'find' {
+        { $_ -in 'search','find' } {
             if ([string]::IsNullOrWhiteSpace($Alias)) { Write-Host "Usage: Ins-Alias search <keyword>"; return }
             Write-Host "Searching: $Alias"
             Get-Content $Global:InsAliasFile | Select-String -Pattern $Alias -SimpleMatch | ForEach-Object {
@@ -60,7 +57,7 @@ function Ins-Alias {
 function Ins-Download {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true, Position=0)][string]$Input,
+        [Parameter(Mandatory=$true, Position=0)][string]$Target,
         [Parameter(Position=1)][string]$Directory,
         [int]$Top,
         [Nullable[int]]$Limit,
@@ -70,7 +67,7 @@ function Ins-Download {
         [switch]$Help
     )
 
-    if ($Help -or [string]::IsNullOrWhiteSpace($Input)) {
+    if ($Help -or [string]::IsNullOrWhiteSpace($Target)) {
         Write-Host "Usage: Ins-Download <URL|alias|username> [-Top N] [-Limit [N]] [-Only] [-Include spec] [-Exclude spec]"
         Write-Host "-Top: URL mode -> first N media in the post; user/alias -> first N posts"
         Write-Host "-Limit: URL mode -> per-post cap when provided (default 5 if value omitted); user/alias -> total cap (default 20)"
@@ -86,24 +83,24 @@ function Ins-Download {
         }
     }
 
-    $mode = ($Input -like 'http*') ? 'url' : 'user'
+    $mode = if ($Target -like 'http*') { 'url' } else { 'user' }
     $realUser = ''
     $currentAlias = ''
 
     if ($mode -eq 'url') {
-        $cleanUrl = $Input -replace "\?.*", ''
-        $Input = $cleanUrl
+        $cleanUrl = $Target -replace "\?.*", ''
+        $Target = $cleanUrl
     } else {
-        if ($aliasMap.ContainsKey($Input)) {
-            $currentAlias = $Input
-            $realUser = $aliasMap[$Input]
+        if ($aliasMap.ContainsKey($Target)) {
+            $currentAlias = $Target
+            $realUser = $aliasMap[$Target]
         } else {
-            $realUser = $Input
+            $realUser = $Target
         }
-        $Input = "https://www.instagram.com/$realUser/"
+        $Target = "https://www.instagram.com/$realUser/"
     }
 
-    $targetDir = if ($Directory) { $Directory } elseif ($currentAlias) { Join-Path $Global:InsDownloadDir $currentAlias } else { Join-Path $Global:InsDownloadDir ($realUser ? $realUser : 'unknown') }
+    $targetDir = if ($Directory) { $Directory } elseif ($currentAlias) { Join-Path $Global:InsDownloadDir $currentAlias } else { Join-Path $Global:InsDownloadDir (if ($realUser) { $realUser } else { 'unknown' }) }
     if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Force -Path $targetDir | Out-Null }
 
     $gdlArgs = @(
@@ -120,7 +117,7 @@ function Ins-Download {
 
     if ($mode -eq 'url') {
         if ($Only.IsPresent) {
-            if ($Input -match 'img_index=([0-9]+)') { $gdlArgs += @('--range', $matches[1]) } else { $gdlArgs += @('--range', '1') }
+            if ($Target -match 'img_index=([0-9]+)') { $gdlArgs += @('--range', $matches[1]) } else { $gdlArgs += @('--range', '1') }
         }
         if ($Top) { $gdlArgs += @('--range', "1-$Top") }
         if ($Include) { $gdlArgs += @('--range', $Include) }
@@ -129,18 +126,18 @@ function Ins-Download {
             else { $gdlArgs += @('--filter', "num != $Exclude") }
         }
         if ($PSBoundParameters.ContainsKey('Limit')) {
-            $effective = ($Limit -gt 0) ? $Limit : 5
+            $effective = if ($Limit -gt 0) { $Limit } else { 5 }
             $gdlArgs += @('--filter', "num <= $effective")
         }
     } else {
-        $effectiveLimit = if ($PSBoundParameters.ContainsKey('Limit')) { ($Limit -gt 0) ? $Limit : 20 } else { 20 }
+        $effectiveLimit = if ($PSBoundParameters.ContainsKey('Limit')) { if ($Limit -gt 0) { $Limit } else { 20 } } else { 20 }
         if ($Top) { $gdlArgs += @('--range', "1-$Top") }
         $gdlArgs += @('--filter', "num <= $effectiveLimit")
     }
 
     $logFile = [System.IO.Path]::GetTempFileName()
     Write-Host "Downloading to $targetDir"
-    $proc = Start-Process -FilePath "gallery-dl" -ArgumentList ($gdlArgs + @($Input)) -RedirectStandardOutput $logFile -RedirectStandardError $logFile -NoNewWindow -PassThru
+    $proc = Start-Process -FilePath "gallery-dl" -ArgumentList ($gdlArgs + @($Target)) -RedirectStandardOutput $logFile -RedirectStandardError $logFile -NoNewWindow -PassThru
     $proc.WaitForExit()
     $output = Get-Content $logFile
     $output | ForEach-Object { Write-Host $_ }

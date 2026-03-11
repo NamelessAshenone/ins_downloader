@@ -7,7 +7,7 @@
 
 function Prompt-YesNo {
     param([string]$Message,[switch]$DefaultYes)
-    $suffix = $DefaultYes ? "[Y/n]" : "[y/N]"
+    $suffix = if ($DefaultYes) { "[Y/n]" } else { "[y/N]" }
     $resp = Read-Host "$Message $suffix"
     if ([string]::IsNullOrWhiteSpace($resp)) { return $DefaultYes }
     return $resp.Trim().ToLower() -eq 'y'
@@ -47,9 +47,9 @@ function Copy-InsTools {
 function Update-Profile {
     param([string]$ScriptPath)
     if (-not $ScriptPath) { return }
-    if (-not (Prompt-YesNo "Add dot-source to PowerShell profile?" -DefaultYes:$true)) { Write-Host "Skipped profile update. Add manually: . \"$ScriptPath\""; return }
+    if (-not (Prompt-YesNo "Add dot-source to PowerShell profile?" -DefaultYes:$true)) { Write-Host "Skipped profile update. Add manually: . `"$ScriptPath`""; return }
     if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force | Out-Null }
-    $line = ". \"$ScriptPath\""
+    $line = ". `"$ScriptPath`""
     $profileContent = Get-Content $PROFILE -ErrorAction SilentlyContinue
     if ($profileContent -contains $line) { Write-Host "Profile already contains entry."; return }
     Add-Content -Path $PROFILE -Value $line

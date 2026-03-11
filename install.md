@@ -60,7 +60,7 @@ cd %USERPROFILE%\VSCodeProjects\ins_download
 5. 写入 PowerShell profile（手动）：
    ```powershell
    if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
-   Add-Content -Path $PROFILE -Value ". `$env:USERPROFILE\Tools\ins_tools.ps1""
+   Add-Content -Path $PROFILE -Value ". `"$env:USERPROFILE\Tools\ins_tools.ps1`""
    ```
    重启 PowerShell，或执行 `. "$env:USERPROFILE\Tools\ins_tools.ps1"`。
 6. 验证：
