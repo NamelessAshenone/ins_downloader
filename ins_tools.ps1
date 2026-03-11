@@ -202,11 +202,12 @@ function Ins-Download {
         $gdlArgs += @('--filter', "num <= $effectiveLimit")
     }
 
-    $logFile = [System.IO.Path]::GetTempFileName()
+    $stdoutLog = [System.IO.Path]::GetTempFileName()
+    $stderrLog = [System.IO.Path]::GetTempFileName()
     Write-Host "Downloading to $targetDir"
-    $proc = Start-Process -FilePath "gallery-dl" -ArgumentList ($gdlArgs + @($Target)) -RedirectStandardOutput $logFile -RedirectStandardError $logFile -NoNewWindow -PassThru
+    $proc = Start-Process -FilePath "gallery-dl" -ArgumentList ($gdlArgs + @($Target)) -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -NoNewWindow -PassThru
     $proc.WaitForExit()
-    $output = Get-Content $logFile
+    $output = @(Get-Content $stdoutLog -ErrorAction SilentlyContinue) + @(Get-Content $stderrLog -ErrorAction SilentlyContinue)
     $output | ForEach-Object { Write-Host $_ }
 
     if ($output -match 'HTTP error (429|403)') {
@@ -214,7 +215,7 @@ function Ins-Download {
         Start-Sleep -Seconds 120
     }
 
-    Remove-Item $logFile -ErrorAction SilentlyContinue
+    Remove-Item $stdoutLog, $stderrLog -ErrorAction SilentlyContinue
 
     if ($proc.ExitCode -eq 0) { Write-Host "Done" } else { Write-Host "gallery-dl exited with code $($proc.ExitCode)" }
 }
