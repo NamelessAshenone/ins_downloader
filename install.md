@@ -33,11 +33,20 @@ Download root (default): `~/Pictures/ins_pictures`
 > 推荐直接运行脚本：`install_windows.ps1`（见下）。脚本会逐步询问，支持跳过每一项。
 
 ### 自动安装（交互式脚本）
+
+**方式一（推荐）：双击批处理文件**
+
+直接双击 `install_windows.bat`，它会自动以 Bypass 策略启动 PowerShell 脚本，无需手动修改执行策略。
+
+**方式二：在 PowerShell 中运行**
+
 ```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force
-cd %USERPROFILE%\VSCodeProjects\ins_download
-./install_windows.ps1
+cd <仓库所在目录>
+powershell -ExecutionPolicy Bypass -File .\install_windows.ps1
 ```
+
+> **注意**：从网络下载的脚本会被 Windows 标记为"来自 Internet"，`RemoteSigned` 策略会阻止运行未签名的脚本。使用 `-ExecutionPolicy Bypass` 或运行 `Unblock-File .\install_windows.ps1` 可解决此问题。
+
 脚本会：
 - 检查/安装 Python（winget）
 - 安装/升级 gallery-dl（pip --user）
