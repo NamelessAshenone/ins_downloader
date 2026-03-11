@@ -14,7 +14,7 @@ This project provides small helper functions to download Instagram media with al
 ## Files
 - macOS: functions live in `~/.zshrc` (already in place).
 - Windows: [ins_tools.ps1](ins_tools.ps1) (PowerShell functions `Ins-Alias` and `Ins-Download`).
-- Install guides: [install.md](install.md) and helper script [install.sh](install.sh) (macOS bootstrap).
+- Install guides: [install.md](install.md), helper script [install.sh](install.sh) (macOS bootstrap), and [install_windows.bat](install_windows.bat) (Windows launcher).
 
 ## Quick Start (Windows)
 1. Install prerequisites (Python/pip, gallery-dl, optionally ffmpeg) per [install.md](install.md).
