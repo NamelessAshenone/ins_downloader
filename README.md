@@ -37,12 +37,21 @@ Supports **macOS** (zsh) and **Windows** (PowerShell).
    - Install / upgrade gallery-dl (pip)
    - Optionally install ffmpeg (winget)
    - Copy `ins_tools.ps1` to a chosen directory (default `%USERPROFILE%\Tools`)
+   - **Set the execution policy to `RemoteSigned`** (so PowerShell can load `ins_tools.ps1` on every session)
    - Optionally add a dot-source line to your PowerShell profile
 
 3. **Restart PowerShell**, then verify:
    ```powershell
    Ins-Download -Help
    ```
+
+> **Execution-policy troubleshooting**  
+> If you still see *"cannot be loaded because running scripts is disabled"* or *"not digitally signed"*,  
+> open PowerShell **as your normal user** and run:  
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+> ```  
+> Then restart PowerShell. This only needs to be done once.
 
 ### Manual Install
 
@@ -53,20 +62,25 @@ python -m pip install --user -U gallery-dl
 # 2. (Optional) Install ffmpeg
 winget install --id Gyan.FFmpeg
 
-# 3. Copy ins_tools.ps1 to a permanent location
+# 3. Copy ins_tools.ps1 to a permanent location and unblock it
 Copy-Item ins_tools.ps1 "$env:USERPROFILE\Tools\ins_tools.ps1"
+Unblock-File "$env:USERPROFILE\Tools\ins_tools.ps1"
 
-# 4. Add to your PowerShell profile so it loads on every session
+# 4. Allow PowerShell to run local scripts (once per user)
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
+# 5. Add to your PowerShell profile so it loads on every session
 if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
 Add-Content -Path $PROFILE -Value '. "$env:USERPROFILE\Tools\ins_tools.ps1"'
 
-# 5. Restart PowerShell and verify
+# 6. Restart PowerShell and verify
 Ins-Download -Help
 ```
 
-> **Tip:** If you get an execution-policy error, run:  
-> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`  
-> or use `Unblock-File ins_tools.ps1`.
+> **Why are steps 3–4 needed?**  
+> By default Windows PowerShell blocks all scripts.  
+> `RemoteSigned` allows scripts created locally to run without a signature, while scripts downloaded from the internet must still be signed.  
+> `Unblock-File` (step 3) removes the "downloaded from internet" mark so that `RemoteSigned` treats the file as local.
 
 ---
 

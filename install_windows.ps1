@@ -40,8 +40,26 @@ function Copy-InsTools {
     $src = Join-Path $RepoRoot 'ins_tools.ps1'
     $dst = Join-Path $targetDir 'ins_tools.ps1'
     Copy-Item -Path $src -Destination $dst -Force
+    Unblock-File -Path $dst -ErrorAction SilentlyContinue
     Write-Host "Copied to $dst"
     return $dst
+}
+
+function Ensure-ExecutionPolicy {
+    $policy = Get-ExecutionPolicy -Scope CurrentUser
+    if ($policy -in @('RemoteSigned','Unrestricted','Bypass')) {
+        Write-Host "Execution policy (CurrentUser): $policy — OK."
+        return
+    }
+    Write-Host "Current execution policy (CurrentUser): $policy"
+    Write-Host "PowerShell will block unsigned scripts (like ins_tools.ps1) unless the policy is at least RemoteSigned."
+    if (-not (Prompt-YesNo "Set execution policy to RemoteSigned for the current user?" -DefaultYes:$true)) {
+        Write-Host "Skipped. You may need to run the following command manually before ins_tools.ps1 will load:"
+        Write-Host "  Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
+        return
+    }
+    Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force
+    Write-Host "Execution policy set to RemoteSigned (CurrentUser)."
 }
 
 function Update-Profile {
@@ -64,6 +82,7 @@ Ensure-Python
 Install-GalleryDl
 Ensure-FFmpeg
 $scriptPath = Copy-InsTools -RepoRoot $repoRoot
+Ensure-ExecutionPolicy
 Update-Profile -ScriptPath $scriptPath
 
 Write-Host "All done. Test with: Ins-Download -h"
