@@ -16,9 +16,23 @@ if ($MyInvocation.InvocationName -ne '.') {
 }
 
 # Configurable defaults
-$Global:InsAliasFile   = if ($env:INS_ALIAS_FILE)   { $env:INS_ALIAS_FILE }   else { "$env:USERPROFILE\.ins_aliases" }
-$Global:InsDownloadDir = if ($env:INS_DOWNLOAD_DIR) { $env:INS_DOWNLOAD_DIR } else { "$env:USERPROFILE\Pictures\ins_pictures" }
+$Global:InsAliasFile     = if ($env:INS_ALIAS_FILE)     { $env:INS_ALIAS_FILE }     else { "$env:USERPROFILE\.ins_aliases" }
 $Global:InsChromeProfile = if ($env:INS_CHROME_PROFILE) { $env:INS_CHROME_PROFILE } else { "Default" }
+$Global:InsConfigFile    = Join-Path $env:USERPROFILE '.ins_download_dir'
+$Global:InsDefaultSafeDir = Join-Path $env:USERPROFILE 'Pictures\ins_pictures'
+
+# Download directory: env var → persisted config file → not yet configured
+$Global:InsDownloadDirConfigured = $false
+if ($env:INS_DOWNLOAD_DIR) {
+    $Global:InsDownloadDir = $env:INS_DOWNLOAD_DIR
+    $Global:InsDownloadDirConfigured = $true
+} elseif (Test-Path $Global:InsConfigFile) {
+    $savedDir = (Get-Content $Global:InsConfigFile -First 1).Trim()
+    if ($savedDir) {
+        $Global:InsDownloadDir = $savedDir
+        $Global:InsDownloadDirConfigured = $true
+    }
+}
 
 function Ins-Alias {
     param(
@@ -68,6 +82,27 @@ function Ins-Alias {
     }
 }
 
+function Ins-SetDir {
+    param(
+        [Parameter(Position=0)][string]$Path
+    )
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        if ($Global:InsDownloadDirConfigured) {
+            Write-Host "Current download directory: $Global:InsDownloadDir"
+        } else {
+            Write-Host "No download directory configured yet."
+        }
+        Write-Host "Usage: Ins-SetDir <path>"
+        return
+    }
+    $resolved = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+    if (-not (Test-Path $resolved)) { New-Item -ItemType Directory -Force -Path $resolved | Out-Null }
+    $Global:InsDownloadDir = $resolved
+    $Global:InsDownloadDirConfigured = $true
+    Set-Content -Path $Global:InsConfigFile -Value $resolved
+    Write-Host "Download directory set to: $resolved"
+}
+
 function Ins-Download {
     [CmdletBinding()]
     param(
@@ -82,7 +117,8 @@ function Ins-Download {
     )
 
     if ($Help -or [string]::IsNullOrWhiteSpace($Target)) {
-        Write-Host "Usage: Ins-Download <URL|alias|username> [-Top N] [-Limit [N]] [-Only] [-Include spec] [-Exclude spec]"
+        Write-Host "Usage: Ins-Download <URL|alias|username> [directory] [-Top N] [-Limit [N]] [-Only] [-Include spec] [-Exclude spec]"
+        Write-Host "-Directory: custom output directory for this download (positional or named)"
         Write-Host "-Top: URL mode -> first N media in the post; user/alias -> first N posts"
         Write-Host "-Limit: URL mode -> per-post cap when provided (default 5 if value omitted); user/alias -> total cap (default 20)"
         Write-Host "-Only: URL mode, download only current media (uses img_index)"
@@ -112,6 +148,22 @@ function Ins-Download {
             $realUser = $Target
         }
         $Target = "https://www.instagram.com/$realUser/"
+    }
+
+    # First-time directory prompt when no -Directory specified and no default configured
+    if (-not $Directory -and -not $Global:InsDownloadDirConfigured) {
+        Write-Host "No default download directory has been configured."
+        $userDir = Read-Host "Enter a download directory path (or press Enter to use default: $($Global:InsDefaultSafeDir))"
+        if ([string]::IsNullOrWhiteSpace($userDir)) {
+            $Global:InsDownloadDir = $Global:InsDefaultSafeDir
+            Write-Host "Using default directory: $($Global:InsDefaultSafeDir)"
+        } else {
+            $resolved = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($userDir)
+            $Global:InsDownloadDir = $resolved
+            Write-Host "Download directory set to: $resolved"
+        }
+        $Global:InsDownloadDirConfigured = $true
+        Set-Content -Path $Global:InsConfigFile -Value $Global:InsDownloadDir
     }
 
     $folderName = if ($realUser) { $realUser } else { 'unknown' }
@@ -169,3 +221,4 @@ function Ins-Download {
 
 Set-Alias -Name ins_alias -Value Ins-Alias
 Set-Alias -Name ins_download -Value Ins-Download
+Set-Alias -Name ins_setdir -Value Ins-SetDir
