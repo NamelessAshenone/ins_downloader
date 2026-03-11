@@ -219,11 +219,12 @@ Write-Host ""
 Write-Host "--------------------------------------------" -ForegroundColor DarkGray
 Write-Host "[5/5] 配置 PowerShell Profile 自动加载 ..." -ForegroundColor Green
 
+$dotSourceLine = if ($scriptDst) { ". `"$scriptDst`"" } else { $null }
+
 if (-not $scriptDst) {
     Write-Host "  ins_tools.ps1 未部署，跳过 Profile 配置。"
     $summary += "Profile: 跳过（无脚本路径）"
 } else {
-    $dotSourceLine = ". `"$scriptDst`""
     Write-Host "  默认操作: 将以下内容写入 PowerShell Profile，使每次打开终端自动加载功能" -ForegroundColor Yellow
     Write-Host "    $dotSourceLine" -ForegroundColor Yellow
     Write-Host "  Profile 路径: $PROFILE" -ForegroundColor Yellow
@@ -257,7 +258,11 @@ foreach ($item in $summary) {
 }
 Write-Host ""
 Write-Host "后续操作:" -ForegroundColor Green
-Write-Host "  1. 重启 PowerShell（或执行: $dotSourceLine）"
+if ($dotSourceLine) {
+    Write-Host "  1. 重启 PowerShell（或执行: $dotSourceLine）"
+} else {
+    Write-Host "  1. 重启 PowerShell"
+}
 Write-Host "  2. 验证安装: Ins-Download -Help"
 Write-Host "  3. 管理别名: Ins-Alias list"
 Write-Host ""
