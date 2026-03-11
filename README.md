@@ -45,6 +45,24 @@ Supports **macOS** (zsh) and **Windows** (PowerShell).
    Ins-Download -Help
    ```
 
+> **"Ins-Download" is not recognized / 无法将"Ins-Download"项识别为 …**  
+> The script **must be dot-sourced** (note the leading `. `) so that functions
+> are loaded into your current session.  Running with
+> `powershell -File ins_tools.ps1` executes the script in a child process whose
+> scope is discarded immediately, so no functions remain.
+>
+> ```powershell
+> # ✗ Wrong – functions are lost after the script exits
+> powershell -ExecutionPolicy Bypass -File "ins_tools.ps1"
+>
+> # ✓ Correct – functions stay in the current session
+> . "C:\path\to\ins_tools.ps1"
+> ```
+>
+> If you followed the installer and accepted the profile entry, just **restart
+> PowerShell** — the dot-source line in `$PROFILE` loads the functions
+> automatically.
+
 > **Execution-policy troubleshooting**  
 > If you still see *"cannot be loaded because running scripts is disabled"* or *"not digitally signed"*,  
 > open PowerShell **as your normal user** and run:  

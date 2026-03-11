@@ -85,4 +85,5 @@ $scriptPath = Copy-InsTools -RepoRoot $repoRoot
 Ensure-ExecutionPolicy
 Update-Profile -ScriptPath $scriptPath
 
-Write-Host "All done. Test with: Ins-Download -h"
+Write-Host "All done. Restart PowerShell, then verify with: Ins-Download -Help"
+Write-Host "(Do NOT use 'powershell -File' to load ins_tools.ps1 — it must be dot-sourced.)"
