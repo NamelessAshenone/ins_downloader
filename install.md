@@ -30,22 +30,40 @@ Download root (default): `~/Pictures/ins_pictures`
    ```
 
 ## Windows
-1. Python & pip: install from https://www.python.org/ (add to PATH).
-2. Install gallery-dl:
+> 推荐直接运行脚本：`install_windows.ps1`（见下）。脚本会逐步询问，支持跳过每一项。
+
+### 自动安装（交互式脚本）
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force
+cd %USERPROFILE%\VSCodeProjects\ins_download
+./install_windows.ps1
+```
+脚本会：
+- 检查/安装 Python（winget）
+- 安装/升级 gallery-dl（pip --user）
+- 询问是否安装 ffmpeg（winget，可跳过）
+- 询问是否复制 `ins_tools.ps1` 到指定目录（默认 `%USERPROFILE%\Tools`，可跳过）
+- 询问是否自动写入 PowerShell Profile 引用（可跳过，并提示手动添加位置）
+
+### 手动安装步骤
+1. Python & pip: 安装并加入 PATH（https://www.python.org/）。
+2. gallery-dl:
    ```powershell
-   python -m pip install --user gallery-dl
+   python -m pip install --user -U gallery-dl
    ```
-3. (Optional) ffmpeg:
-   - Using winget: `winget install --id Gyan.FFmpeg` (or another distro)
-   - Ensure `ffmpeg.exe` is on PATH.
-4. Place `ins_tools.ps1` somewhere, e.g. `%USERPROFILE%\Tools\ins_tools.ps1`.
-5. Add to PowerShell profile (create if missing):
+3. (可选) ffmpeg:
+   ```powershell
+   winget install --id Gyan.FFmpeg
+   ```
+   确认 `ffmpeg.exe` 在 PATH。
+4. 将 `ins_tools.ps1` 放到某个路径，如 `%USERPROFILE%\Tools\ins_tools.ps1`。
+5. 写入 PowerShell profile（手动）：
    ```powershell
    if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
-   Add-Content -Path $PROFILE -Value ". `$env:USERPROFILE\Tools\ins_tools.ps1" | Out-Null
+   Add-Content -Path $PROFILE -Value ". `$env:USERPROFILE\Tools\ins_tools.ps1""
    ```
-   Then restart PowerShell or `.` source it: `. "$env:USERPROFILE\Tools\ins_tools.ps1"`
-6. Test:
+   重启 PowerShell，或执行 `. "$env:USERPROFILE\Tools\ins_tools.ps1"`。
+6. 验证：
    ```powershell
    Ins-Download -h
    ```
