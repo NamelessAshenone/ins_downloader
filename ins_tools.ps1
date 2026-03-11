@@ -1,6 +1,20 @@
 # PowerShell helpers for Instagram downloads (Windows)
 # Mirrors macOS ins_alias / ins_download behavior
 
+# Guard: this script must be dot-sourced so that functions are defined in the
+# caller's session.  Running with "powershell -File" or directly executing the
+# script starts a child process whose scope is discarded when it exits, which
+# means Ins-Download / Ins-Alias will not be available afterward.
+if ($MyInvocation.InvocationName -ne '.') {
+    Write-Warning "This script needs to be dot-sourced, not executed directly."
+    Write-Warning "Run the following command instead:"
+    Write-Warning "  . `"$($MyInvocation.MyCommand.Path)`""
+    Write-Warning ""
+    Write-Warning "To load it automatically in every PowerShell session, add that"
+    Write-Warning "line to your profile (`$PROFILE)."
+    return
+}
+
 # Configurable defaults
 $Global:InsAliasFile   = if ($env:INS_ALIAS_FILE)   { $env:INS_ALIAS_FILE }   else { "$env:USERPROFILE\.ins_aliases" }
 $Global:InsDownloadDir = if ($env:INS_DOWNLOAD_DIR) { $env:INS_DOWNLOAD_DIR } else { "$env:USERPROFILE\Pictures\ins_pictures" }
