@@ -1,37 +1,152 @@
-# Instagram Download Helpers (macOS + Windows)
+# Instagram Download Helpers
 
-This project provides small helper functions to download Instagram media with alias support and post/media limits. It mirrors the macOS zsh helpers (`ins_alias`, `ins_download`) and adds a Windows PowerShell variant.
+Small helper functions to download Instagram media via [gallery-dl](https://github.com/mikf/gallery-dl), with **alias management** and **post/media limiting**.  
+Supports **macOS** (zsh) and **Windows** (PowerShell).
+
+---
 
 ## Features
-- Alias mapping: map short aliases to real usernames via a simple `~/.ins_aliases` file (shared across macOS and Windows).
-- Download by URL, username, or alias.
-- Limits:
-  - URL mode: unlimited by default; when `-l/--limit` is provided, caps per-post media (default 5 if value omitted).
-  - Username/Alias mode: total download cap (default 20; override with `-l/--limit`).
-  - `-t/--top` to restrict posts (first N posts for user/alias; first N media for a single URL post).
-- Anti-scrape: random 1–5s request sleep; backoff notice and 120s pause on HTTP 429/403.
+
+| Feature | Description |
+|---------|-------------|
+| **Alias mapping** | Map short names to Instagram usernames (`~/.ins_aliases`, shared across platforms) |
+| **Download modes** | By URL, username, or alias |
+| **Limits** | `-Top N` for first N posts/media; `-Limit [N]` for per-post or total cap |
+| **Anti-scrape** | Random 1–5 s sleep per request; auto 120 s backoff on HTTP 429/403 |
+
+---
+
+## Prerequisites
+
+- **Python 3.8+** with pip
+- **[gallery-dl](https://github.com/mikf/gallery-dl)** — `pip install --user gallery-dl`
+- **ffmpeg** *(optional, for video muxing)*
+- **Chrome** *(for cookie-based authentication)*
+
+---
+
+## Quick Start — Windows
+
+### Automated Install (recommended)
+
+1. Double-click **`install_windows.bat`** — it launches the interactive PowerShell installer automatically.  
+   *(The script tries `pwsh` first; falls back to `powershell`.)*
+
+2. The installer will walk you through each step:
+   - Install / check Python (winget)
+   - Install / upgrade gallery-dl (pip)
+   - Optionally install ffmpeg (winget)
+   - Copy `ins_tools.ps1` to a chosen directory (default `%USERPROFILE%\Tools`)
+   - Optionally add a dot-source line to your PowerShell profile
+
+3. **Restart PowerShell**, then verify:
+   ```powershell
+   Ins-Download -Help
+   ```
+
+### Manual Install
+
+```powershell
+# 1. Install gallery-dl
+python -m pip install --user -U gallery-dl
+
+# 2. (Optional) Install ffmpeg
+winget install --id Gyan.FFmpeg
+
+# 3. Copy ins_tools.ps1 to a permanent location
+Copy-Item ins_tools.ps1 "$env:USERPROFILE\Tools\ins_tools.ps1"
+
+# 4. Add to your PowerShell profile so it loads on every session
+if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
+Add-Content -Path $PROFILE -Value '. "$env:USERPROFILE\Tools\ins_tools.ps1"'
+
+# 5. Restart PowerShell and verify
+Ins-Download -Help
+```
+
+> **Tip:** If you get an execution-policy error, run:  
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`  
+> or use `Unblock-File ins_tools.ps1`.
+
+---
+
+## Quick Start — macOS
+
+```bash
+# One-time bootstrap (installs Python, gallery-dl, ffmpeg)
+bash install.sh
+
+# Functions are sourced from ~/.zshrc — restart your shell, then:
+ins_download -h
+```
+
+---
+
+## Usage
+
+### Alias Management
+
+```powershell
+Ins-Alias add alice real_username   # create alias
+Ins-Alias list                      # show all aliases
+Ins-Alias search alice              # search aliases
+Ins-Alias delete alice              # remove alias
+```
+
+### Downloading
+
+```powershell
+# Download a single post (all media)
+Ins-Download https://www.instagram.com/p/POSTID/
+
+# Download first 3 media from a post
+Ins-Download https://www.instagram.com/p/POSTID/ -Top 3
+
+# Download by alias (first 20 posts by default)
+Ins-Download alice
+
+# Alias mode: first 5 posts, total cap 10
+Ins-Download alice -Top 5 -Limit 10
+
+# Show help
+Ins-Download -Help
+```
+
+### Parameters
+
+| Parameter | URL mode | User/Alias mode |
+|-----------|----------|-----------------|
+| `-Top N` | First N media in the post | First N posts |
+| `-Limit [N]` | Per-post cap (default 5 if omitted) | Total cap (default 20) |
+| `-Only` | Download only current media (img_index) | — |
+| `-Include` | Range like `1,3` or `2-4` | — |
+| `-Exclude` | Range like `1,3` or `2-4` | — |
+
+---
 
 ## Files
-- macOS: functions live in `~/.zshrc` (already in place).
-- Windows: [ins_tools.ps1](ins_tools.ps1) (PowerShell functions `Ins-Alias` and `Ins-Download`).
-- Install guides: [install.md](install.md), helper script [install.sh](install.sh) (macOS bootstrap), and [install_windows.bat](install_windows.bat) (Windows launcher).
 
-## Quick Start (Windows)
-1. Install prerequisites (Python/pip, gallery-dl, optionally ffmpeg) per [install.md](install.md).
-2. Place [ins_tools.ps1](ins_tools.ps1) somewhere on disk, e.g. `%USERPROFILE%\Tools\ins_tools.ps1`.
-3. Import in PowerShell profile:
-   ```powershell
-   . "$env:USERPROFILE\Tools\ins_tools.ps1"
-   ```
-4. Use commands:
-   - `Ins-Alias add alice real_username`
-   - `Ins-Alias list`
-   - `Ins-Download https://www.instagram.com/p/POSTID/ -Limit` (defaults to 5 per post when -Limit is present without value)
-   - `Ins-Download alice -Top 3 -Limit 10` (alias mode: first 3 posts, total cap 10)
+| File | Purpose |
+|------|---------|
+| `ins_tools.ps1` | PowerShell functions (`Ins-Alias`, `Ins-Download`) |
+| `install_windows.bat` | Windows one-click installer launcher |
+| `install_windows.ps1` | Interactive Windows installer script |
+| `install.sh` | macOS bootstrap script |
 
-## Quick Start (macOS)
-- Already wired in `~/.zshrc`. Usage mirrors Windows names (`ins_alias`, `ins_download`). See help with `ins_download -h`.
+---
+
+## Configuration
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `INS_ALIAS_FILE` | `~/.ins_aliases` | Path to alias file |
+| `INS_DOWNLOAD_DIR` | `~/Pictures/ins_pictures` | Download root directory |
+| `INS_CHROME_PROFILE` | `Default` | Chrome profile name for cookies |
+
+---
 
 ## Notes
-- Both platforms read/write the same alias file: `~/.ins_aliases`.
-- Uses `gallery-dl` with browser cookies; adjust browser/profile as needed (Chrome on macOS, Chrome default profile on Windows in the PowerShell script).
+
+- Both platforms share the same alias file (`~/.ins_aliases`).
+- Uses Chrome cookies for authentication by default. Set `$env:INS_CHROME_PROFILE` to use a different Chrome profile.
+- To update gallery-dl: `pip install --user -U gallery-dl`

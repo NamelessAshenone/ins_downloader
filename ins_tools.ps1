@@ -57,7 +57,7 @@ function Ins-Alias {
 function Ins-Download {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true, Position=0)][string]$Target,
+        [Parameter(Position=0)][string]$Target,
         [Parameter(Position=1)][string]$Directory,
         [int]$Top,
         [Nullable[int]]$Limit,
@@ -100,7 +100,8 @@ function Ins-Download {
         $Target = "https://www.instagram.com/$realUser/"
     }
 
-    $targetDir = if ($Directory) { $Directory } elseif ($currentAlias) { Join-Path $Global:InsDownloadDir $currentAlias } else { Join-Path $Global:InsDownloadDir (if ($realUser) { $realUser } else { 'unknown' }) }
+    $folderName = if ($realUser) { $realUser } else { 'unknown' }
+    $targetDir = if ($Directory) { $Directory } elseif ($currentAlias) { Join-Path $Global:InsDownloadDir $currentAlias } else { Join-Path $Global:InsDownloadDir $folderName }
     if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Force -Path $targetDir | Out-Null }
 
     $gdlArgs = @(

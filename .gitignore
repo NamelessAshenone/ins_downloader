@@ -1,0 +1,15 @@
+# Archives
+*.zip
+*.tar.gz
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# PowerShell
+*.ps1xml
+
+# Temporary files
+*.tmp
+*.log
