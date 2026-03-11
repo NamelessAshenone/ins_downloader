@@ -17,13 +17,14 @@ This project provides small helper functions to download Instagram media with al
 - Install guides: [install.md](install.md) and helper script [install.sh](install.sh) (macOS bootstrap).
 
 ## Quick Start (Windows)
-1. Install prerequisites (Python/pip, gallery-dl, optionally ffmpeg) per [install.md](install.md).
-2. Place [ins_tools.ps1](ins_tools.ps1) somewhere on disk, e.g. `%USERPROFILE%\Tools\ins_tools.ps1`.
-3. Import in PowerShell profile:
+1. 下载 `ins_download.zip` 并解压到任意目录。
+2. 打开 PowerShell，进入解压目录，运行一键安装脚本：
    ```powershell
-   . "$env:USERPROFILE\Tools\ins_tools.ps1"
+   Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force
+   .\install_windows.ps1
    ```
-4. Use commands:
+   脚本会自动检测并安装 Python、gallery-dl，并配置 PowerShell 环境。每一步均可跳过，默认路径会明确提示。
+3. 重启 PowerShell，即可使用：
    - `Ins-Alias add alice real_username`
    - `Ins-Alias list`
    - `Ins-Download https://www.instagram.com/p/POSTID/ -Limit` (defaults to 5 per post when -Limit is present without value)
