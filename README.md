@@ -1,7 +1,7 @@
 # Instagram Download Helpers
 
-Small helper functions to download Instagram media via [gallery-dl](https://github.com/mikf/gallery-dl), with **alias management** and **post/media limiting**.  
-Supports **macOS** (zsh) and **Windows** (PowerShell).
+Small helper functions to download Instagram media via [gallery-dl](https://github.com/mikf/gallery-dl), with **alias management**, **post/media limiting**, and **configurable download directories**.  
+Supports **macOS** (zsh / bash) and **Windows** (PowerShell).
 
 ---
 
@@ -12,6 +12,7 @@ Supports **macOS** (zsh) and **Windows** (PowerShell).
 | **Alias mapping** | Map short names to Instagram usernames (`~/.ins_aliases`, shared across platforms) |
 | **Download modes** | By URL, username, or alias |
 | **Limits** | `-Top N` for first N posts/media; `-Limit [N]` for per-post or total cap |
+| **Directory control** | Set a persistent default directory, or specify a per-download directory |
 | **Anti-scrape** | Random 1–5 s sleep per request; auto 120 s backoff on HTTP 429/403 |
 
 ---
@@ -65,11 +66,21 @@ Supports **macOS** (zsh) and **Windows** (PowerShell).
 
 > **Execution-policy troubleshooting**  
 > If you still see *"cannot be loaded because running scripts is disabled"* or *"not digitally signed"*,  
-> open PowerShell **as your normal user** and run:  
-> ```powershell
-> Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-> ```  
-> Then restart PowerShell. This only needs to be done once.
+> make sure you have done **both** of the following:
+>
+> 1. **Unblock the script** — files downloaded from the internet carry a Zone.Identifier mark that
+>    Windows treats as untrusted. Remove it with:
+>    ```powershell
+>    Unblock-File "$env:USERPROFILE\Tools\ins_tools.ps1"
+>    ```
+> 2. **Set the execution policy** to at least `RemoteSigned` for the current user:
+>    ```powershell
+>    Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+>    ```
+>
+> Both steps are required. `Unblock-File` alone is not enough without `RemoteSigned`,
+> and `RemoteSigned` alone will still block files that have the internet zone mark.
+> After completing both steps, restart PowerShell.
 
 ### Manual Install
 
@@ -105,16 +116,34 @@ Ins-Download -Help
 ## Quick Start — macOS
 
 ```bash
-# One-time bootstrap (installs Python, gallery-dl, ffmpeg)
+# One-time bootstrap (installs Python, gallery-dl, ffmpeg, copies ins_tools.sh)
 bash install.sh
 
-# Functions are sourced from ~/.zshrc — restart your shell, then:
+# The installer adds a source line to ~/.zshrc (or ~/.bashrc).
+# Restart your shell, then:
 ins_download -h
 ```
 
 ---
 
 ## Usage
+
+### Download Directory
+
+On first download (when no default directory has been set and no `-Directory` is given), you will be prompted to choose a download directory.  
+Press Enter to accept the safe default (`~/Pictures/ins_pictures`), or type a custom path. The choice is persisted to `~/.ins_download_dir`.
+
+You can also set or change the default directory at any time:
+
+```powershell
+# Windows
+Ins-SetDir "D:\Media\Instagram"
+
+# macOS / Linux
+ins_setdir ~/Media/Instagram
+```
+
+To see the current directory without changing it, run `Ins-SetDir` / `ins_setdir` with no arguments.
 
 ### Alias Management
 
@@ -134,6 +163,10 @@ Ins-Download https://www.instagram.com/p/POSTID/
 # Download first 3 media from a post
 Ins-Download https://www.instagram.com/p/POSTID/ -Top 3
 
+# Download to a specific directory
+Ins-Download https://www.instagram.com/p/POSTID/ -Directory "D:\MyMedia"
+# macOS: ins_download https://www.instagram.com/p/POSTID/ -d ~/MyMedia
+
 # Download by alias (first 20 posts by default)
 Ins-Download alice
 
@@ -148,11 +181,15 @@ Ins-Download -Help
 
 | Parameter | URL mode | User/Alias mode |
 |-----------|----------|-----------------|
-| `-Top N` | First N media in the post | First N posts |
-| `-Limit [N]` | Per-post cap (default 5 if omitted) | Total cap (default 20) |
-| `-Only` | Download only current media (img_index) | — |
-| `-Include` | Range like `1,3` or `2-4` | — |
-| `-Exclude` | Range like `1,3` or `2-4` | — |
+| `-Directory` / `-d` | Custom output directory | Custom output directory |
+| `-Top N` / `-t N` | First N media in the post | First N posts |
+| `-Limit [N]` / `-l [N]` | Per-post cap (default 5 if omitted) | Total cap (default 20) |
+| `-Only` / `-o` | Download only current media (img_index) | — |
+| `-Include` / `-i` | Range like `1,3` or `2-4` | — |
+| `-Exclude` / `-e` | Range like `1,3` or `2-4` | — |
+
+> **Note:** Short flags (`-t`, `-l`, `-o`, `-i`, `-e`, `-d`) are for macOS / Linux only.  
+> Windows PowerShell uses the long names (`-Top`, `-Limit`, `-Only`, `-Include`, `-Exclude`, `-Directory`).
 
 ---
 
@@ -160,10 +197,11 @@ Ins-Download -Help
 
 | File | Purpose |
 |------|---------|
-| `ins_tools.ps1` | PowerShell functions (`Ins-Alias`, `Ins-Download`) |
+| `ins_tools.ps1` | PowerShell functions (`Ins-Alias`, `Ins-Download`, `Ins-SetDir`) |
+| `ins_tools.sh` | Shell functions for macOS / Linux (`ins_alias`, `ins_download`, `ins_setdir`) |
 | `install_windows.bat` | Windows one-click installer launcher |
 | `install_windows.ps1` | Interactive Windows installer script |
-| `install.sh` | macOS bootstrap script |
+| `install.sh` | macOS / Linux bootstrap script |
 
 ---
 
@@ -172,13 +210,19 @@ Ins-Download -Help
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
 | `INS_ALIAS_FILE` | `~/.ins_aliases` | Path to alias file |
-| `INS_DOWNLOAD_DIR` | `~/Pictures/ins_pictures` | Download root directory |
+| `INS_DOWNLOAD_DIR` | *(prompted on first use)* | Download root directory (overrides persisted config) |
 | `INS_CHROME_PROFILE` | `Default` | Chrome profile name for cookies |
+
+The download directory is resolved in this order:
+
+1. `$env:INS_DOWNLOAD_DIR` (environment variable — highest priority)
+2. `~/.ins_download_dir` (persisted by `Ins-SetDir` / `ins_setdir`)
+3. First-time prompt (asks you to choose; defaults to `~/Pictures/ins_pictures` if skipped)
 
 ---
 
 ## Notes
 
-- Both platforms share the same alias file (`~/.ins_aliases`).
-- Uses Chrome cookies for authentication by default. Set `$env:INS_CHROME_PROFILE` to use a different Chrome profile.
+- Both platforms share the same alias file (`~/.ins_aliases`) and config file (`~/.ins_download_dir`).
+- Uses Chrome cookies for authentication by default. Set `$env:INS_CHROME_PROFILE` / `INS_CHROME_PROFILE` to use a different Chrome profile.
 - To update gallery-dl: `pip install --user -U gallery-dl`

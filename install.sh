@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Minimal macOS bootstrap for ins_download helpers
-# Requirements: Homebrew installed
+# macOS / Linux bootstrap for ins_download helpers
+# Requirements: Homebrew installed (macOS)
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 command -v brew >/dev/null 2>&1 || { echo "brew not found. Install Homebrew first: https://brew.sh"; exit 1; }
 
@@ -13,6 +15,54 @@ echo "==> Installing gallery-dl (user scope)"
 python3 -m pip install --user --upgrade gallery-dl
 
 echo "==> (Optional) Installing ffmpeg"
-brew list ffmpeg >/dev/null 2>&1 || brew install ffmpeg
+if ! brew list ffmpeg >/dev/null 2>&1; then
+    printf "Install ffmpeg via Homebrew? [Y/n] "
+    read -r resp
+    if [[ -z "$resp" || "$resp" =~ ^[Yy]$ ]]; then
+        brew install ffmpeg
+    else
+        echo "Skipped ffmpeg."
+    fi
+fi
 
-echo "==> Done. Restart your shell; functions are already in ~/.zshrc"
+echo "==> Copying ins_tools.sh"
+TARGET_DIR="${HOME}/.local/bin"
+printf "Where to place ins_tools.sh? (Default: %s; enter 'skip' to skip): " "$TARGET_DIR"
+read -r user_target
+if [[ -n "$user_target" && "$user_target" != "skip" ]]; then
+    TARGET_DIR="$user_target"
+fi
+if [[ "${user_target:-}" == "skip" ]]; then
+    echo "Skipped copy."
+    TOOLS_PATH=""
+else
+    mkdir -p "$TARGET_DIR"
+    cp "$SCRIPT_DIR/ins_tools.sh" "$TARGET_DIR/ins_tools.sh"
+    TOOLS_PATH="$TARGET_DIR/ins_tools.sh"
+    echo "Copied to $TOOLS_PATH"
+fi
+
+echo "==> Updating shell config"
+if [[ -n "${TOOLS_PATH:-}" ]]; then
+    # Detect shell config file
+    if [[ "$(basename "${SHELL:-/bin/bash}")" == "zsh" ]]; then
+        SHELL_RC="$HOME/.zshrc"
+    else
+        SHELL_RC="$HOME/.bashrc"
+    fi
+    SOURCE_LINE="source \"$TOOLS_PATH\""
+    if grep -qF "$SOURCE_LINE" "$SHELL_RC" 2>/dev/null; then
+        echo "Shell config ($SHELL_RC) already contains source line."
+    else
+        printf "Add source line to %s? [Y/n] " "$SHELL_RC"
+        read -r resp
+        if [[ -z "$resp" || "$resp" =~ ^[Yy]$ ]]; then
+            echo "$SOURCE_LINE" >> "$SHELL_RC"
+            echo "Added to $SHELL_RC"
+        else
+            echo "Skipped. Add manually: $SOURCE_LINE"
+        fi
+    fi
+fi
+
+echo "==> Done. Restart your shell, then verify with: ins_download -h"
